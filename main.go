@@ -30,7 +30,7 @@ func main() {
 	clonePath := path.Join(homedir, "code", urlComponents.Host, urlComponents.Path)
 	fmt.Printf("Clone Path: %s\n", clonePath)
 
-	err = os.MkdirAll(clonePath, 0750)
+	err = os.MkdirAll(clonePath, 0o750)
 	if err != nil {
 		log.Fatalln(fmt.Errorf("error %w", err))
 	}
@@ -43,5 +43,4 @@ func main() {
 	if err != nil {
 		log.Fatalln(fmt.Errorf("error %w", err))
 	}
-
 }
