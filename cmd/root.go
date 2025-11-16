@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+	"log"
 	"os"
 
 	"github.com/fwilhe2/gcl/internal/gcl"
@@ -17,7 +19,10 @@ var rootCmd = &cobra.Command{
 		if len(args) < 1 {
 			os.Exit(0)
 		}
-		gcl.Clone(args[0])
+		err := gcl.Clone(args[0])
+		if err != nil {
+			log.Fatalln(fmt.Errorf("error %w", err))
+		}
 	},
 }
 
