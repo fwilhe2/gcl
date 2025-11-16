@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	Version = "dev"
-	Commit  = "none"
-	Date    = "unknown"
+	Version string
+	Commit  string
+	Date    string
 )
 
 var rootCmd = &cobra.Command{
