@@ -10,11 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:   "gcl",
 	Short: "git clone wrapper with opinionated directory layout",
 	Long:  `git clone wrapper with opinionated directory layout`,
 	Args:  cobra.ExactArgs(1),
+	Version: version,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			os.Exit(0)

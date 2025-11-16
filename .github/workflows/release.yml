@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2016-2025 Carlos Alexandro Becker
+# SPDX-FileCopyrightText: 2025 Florian Wilhelm
+#
+# SPDX-License-Identifier: MIT
+
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: 'Version component to increment'
+        required: true
+        default: 'patch'
+permissions:
+  contents: write
+jobs:
+  build:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.24"
+    - name: Get Version Number
+      uses: fwilhe2/bump-version@main
+      id: bump
+      with:
+        component: ${{ github.event.inputs.component }}
+    - run: git tag ${{ steps.bump.outputs.newVersion }}
+    - run: git push --tags
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        distribution: goreleaser
+        version: "~> v2"
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
