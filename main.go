@@ -10,9 +10,15 @@ import (
 	"github.com/go-git/go-git/v6"
 )
 
-func dirExists(path string) bool {
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
+func DirExists(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil // directory does not exist
+		}
+		return false, err // some other error (e.g., permission)
+	}
+	return info.IsDir(), nil
 }
 
 func main() {
@@ -34,7 +40,11 @@ func main() {
 
 	clonePath := path.Join(homedir, "code", urlComponents.Host, urlComponents.Path)
 
-	if dirExists(clonePath) {
+	exists, err := DirExists(clonePath)
+	if err != nil {
+		log.Fatalln(fmt.Errorf("error %w", err))
+	}
+	if exists {
 		fmt.Printf("Directory already exists: %s\n", clonePath)
 		os.Exit(0)
 	}
