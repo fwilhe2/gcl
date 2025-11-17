@@ -11,9 +11,7 @@ import (
 )
 
 var (
-	Version string
-	Commit  string
-	Date    string
+	version string
 )
 
 var rootCmd = &cobra.Command{
@@ -21,7 +19,7 @@ var rootCmd = &cobra.Command{
 	Short:   "git clone wrapper with opinionated directory layout",
 	Long:    `git clone wrapper with opinionated directory layout`,
 	Args:    cobra.ExactArgs(1),
-	Version: fmt.Sprintf("%s, %s built %s", Version, Commit, Date),
+	Version: version,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			os.Exit(0)

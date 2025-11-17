@@ -21,7 +21,7 @@ builds:
       - darwin
 
     ldflags:
-      - -s -w -X github.com/fwilhe2/gcl/cmd.root.Version={{.Version}} -X github.com/fwilhe2/gcl/cmd.root.Commit={{.Commit}} -X github.com/fwilhe2/gcl/cmd.root.Date={{.Date}}
+      - -s -w -X github.com/fwilhe2/gcl/cmd.root={{.Version}}
 
 archives:
   - formats: [tar.gz]
