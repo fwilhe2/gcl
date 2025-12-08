@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/go-git/go-git/v6 v6.0.0-20251112161705-8cc3e21f07a9
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 )
 
 require (
