@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -19,12 +20,34 @@ var rootCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	Version: version,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+
+		gitlabToken := os.Getenv("GITLAB_TOKEN")
+		githubToken := os.Getenv("GITHUB_TOKEN")
+		codebergToken := os.Getenv("CODEBERG_TOKEN")
+
 		if len(args) < 1 {
 			os.Exit(0)
 		}
-		err := gcl.Clone(args[0])
+
+		repos, err := gcl.ListRepositories(ctx, args[0], &gcl.Config{
+			GitHubToken:   githubToken,
+			GitLabToken:   gitlabToken,
+			CodebergToken: codebergToken,
+		})
 		if err != nil {
-			log.Fatalln(fmt.Errorf("error %w", err))
+			log.Fatalf("Error listing repositories: %v", err)
+		}
+
+		fmt.Printf("Found %d repositories:\n", len(repos))
+		for _, repo := range repos {
+			fmt.Printf("  - %s (%s)\n", repo.Name, repo.URL)
+
+			err = gcl.Clone(repo.URL)
+			if err != nil {
+				log.Fatalln(fmt.Errorf("error %w", err))
+			}
+
 		}
 	},
 }
