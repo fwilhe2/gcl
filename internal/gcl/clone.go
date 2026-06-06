@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-git/v6"
 )
@@ -26,12 +27,12 @@ func Clone(gitUrl string) error {
 		return err
 	}
 
-	homedir, err := os.UserHomeDir()
+	baseDir, err := cloneBaseDir()
 	if err != nil {
 		return err
 	}
 
-	clonePath := path.Join(homedir, "code", urlComponents.Host, urlComponents.Path)
+	clonePath := filepath.Join(baseDir, urlComponents.Host, strings.TrimPrefix(urlComponents.Path, "/"))
 
 	exists, err := DirExists(clonePath)
 	if err != nil {
@@ -59,4 +60,32 @@ func Clone(gitUrl string) error {
 	}
 
 	return nil
+}
+
+func cloneBaseDir() (string, error) {
+	baseDir := os.Getenv("GCL_BASE_DIR")
+	if baseDir == "" {
+		homedir, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(homedir, "code"), nil
+	}
+
+	return expandHome(baseDir)
+}
+
+func expandHome(dir string) (string, error) {
+	if dir != "~" && !strings.HasPrefix(dir, "~/") {
+		return dir, nil
+	}
+
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	if dir == "~" {
+		return homedir, nil
+	}
+	return filepath.Join(homedir, strings.TrimPrefix(dir, "~/")), nil
 }
