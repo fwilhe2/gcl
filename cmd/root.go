@@ -12,7 +12,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "gcl",
+	Use:     "gcl <repository-url>",
 	Short:   "git clone wrapper with opinionated directory layout",
 	Long:    `git clone wrapper with opinionated directory layout`,
 	Args:    cobra.ExactArgs(1),
@@ -26,6 +26,7 @@ var rootCmd = &cobra.Command{
 
 // Execute executes the root command.
 func Execute() error {
+	rootCmd.Version = version
 	return rootCmd.Execute()
 }
 

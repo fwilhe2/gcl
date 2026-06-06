@@ -34,3 +34,20 @@ gcl https://github.com/fwilhe2/gcl
 gcl ssh://git@github.com/fwilhe2/gcl.git
 gcl git@github.com:fwilhe2/gcl.git
 ```
+
+## Releases
+
+Releases are built by GitHub Actions when a `v*` tag is pushed:
+
+```sh
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+The release workflow uses GoReleaser and bakes the tag version into Cobra's
+`--version` output. For local builds, pass `VERSION` to `make build`:
+
+```sh
+make build VERSION=1.2.3
+./gcl --version
+```

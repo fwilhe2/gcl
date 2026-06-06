@@ -13,7 +13,11 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - main: ./main.go
+    binary: gcl
+    ldflags:
+      - -s -w -X github.com/fwilhe2/gcl/cmd.version={{ .Version }}
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
