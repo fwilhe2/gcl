@@ -1,8 +1,13 @@
 package gcl
 
 import (
+	"errors"
+	"io"
+	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/go-git/go-git/v6"
 )
 
 func TestCloneBaseDirDefault(t *testing.T) {
@@ -11,7 +16,7 @@ func TestCloneBaseDirDefault(t *testing.T) {
 	homedir := t.TempDir()
 	t.Setenv("HOME", homedir)
 
-	got, err := cloneBaseDir()
+	got, err := cloneBaseDir("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +31,7 @@ func TestCloneBaseDirFromEnv(t *testing.T) {
 	want := t.TempDir()
 	t.Setenv("GCL_BASE_DIR", want)
 
-	got, err := cloneBaseDir()
+	got, err := cloneBaseDir("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +46,7 @@ func TestCloneBaseDirExpandsHome(t *testing.T) {
 	t.Setenv("HOME", homedir)
 	t.Setenv("GCL_BASE_DIR", "~/src")
 
-	got, err := cloneBaseDir()
+	got, err := cloneBaseDir("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,5 +54,106 @@ func TestCloneBaseDirExpandsHome(t *testing.T) {
 	want := filepath.Join(homedir, "src")
 	if got != want {
 		t.Fatalf("cloneBaseDir() = %q, want %q", got, want)
+	}
+}
+
+func TestCloneBaseDirOverrideWinsOverEnv(t *testing.T) {
+	t.Setenv("GCL_BASE_DIR", t.TempDir())
+
+	want := t.TempDir()
+	got, err := cloneBaseDir(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got != want {
+		t.Fatalf("cloneBaseDir() = %q, want %q", got, want)
+	}
+}
+
+func TestClonePathForHTTPSURL(t *testing.T) {
+	baseDir := t.TempDir()
+
+	got, err := clonePathFor("https://github.com/fwilhe2/gcl", baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl")
+	if got != want {
+		t.Fatalf("clonePathFor() = %q, want %q", got, want)
+	}
+}
+
+func TestClonePathForSSHURL(t *testing.T) {
+	baseDir := t.TempDir()
+
+	got, err := clonePathFor("ssh://git@github.com/fwilhe2/gcl.git", baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl.git")
+	if got != want {
+		t.Fatalf("clonePathFor() = %q, want %q", got, want)
+	}
+}
+
+func TestClonePathForScpLikeURL(t *testing.T) {
+	baseDir := t.TempDir()
+
+	got, err := clonePathFor("git@github.com:fwilhe2/gcl.git", baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl.git")
+	if got != want {
+		t.Fatalf("clonePathFor() = %q, want %q", got, want)
+	}
+}
+
+func TestClonePathRejectsUnsupportedURL(t *testing.T) {
+	_, err := clonePathFor("not-a-git-url", t.TempDir())
+	if err == nil {
+		t.Fatal("clonePathFor() succeeded, want error")
+	}
+}
+
+func TestClonePathRejectsRepoPathTraversal(t *testing.T) {
+	_, err := clonePathFor("https://github.com/fwilhe2/../gcl", t.TempDir())
+	if err == nil {
+		t.Fatal("clonePathFor() succeeded, want error")
+	}
+}
+
+func TestCloneRemovesTargetDirectoryAfterFailedClone(t *testing.T) {
+	baseDir := t.TempDir()
+	cloneErr := errors.New("clone failed")
+	previousPlainClone := plainClone
+	t.Cleanup(func() {
+		plainClone = previousPlainClone
+	})
+	plainClone = func(path string, opts *git.CloneOptions) (*git.Repository, error) {
+		if err := os.MkdirAll(path, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "partial"), []byte("partial"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return nil, cloneErr
+	}
+
+	err := CloneWithOptions("https://github.com/fwilhe2/gcl", CloneOptions{
+		BaseDir:  baseDir,
+		Progress: io.Discard,
+	})
+	if !errors.Is(err, cloneErr) {
+		t.Fatalf("CloneWithOptions() error = %v, want %v", err, cloneErr)
+	}
+
+	clonePath := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl")
+	if _, err := os.Stat(clonePath); !os.IsNotExist(err) {
+		t.Fatalf("clone path still exists after failure: %v", err)
 	}
 }

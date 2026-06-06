@@ -1,7 +1,13 @@
 package main
 
-import "github.com/fwilhe2/gcl/cmd"
+import (
+	"os"
+
+	"github.com/fwilhe2/gcl/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

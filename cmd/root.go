@@ -1,16 +1,15 @@
 package cmd
 
 import (
-	"fmt"
-	"log"
-	"os"
-
 	"github.com/fwilhe2/gcl/internal/gcl"
 
 	"github.com/spf13/cobra"
 )
 
-var version = "dev"
+var (
+	version = "dev"
+	baseDir string
+)
 
 var rootCmd = &cobra.Command{
 	Use:     "gcl",
@@ -18,14 +17,10 @@ var rootCmd = &cobra.Command{
 	Long:    `git clone wrapper with opinionated directory layout`,
 	Args:    cobra.ExactArgs(1),
 	Version: version,
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 1 {
-			os.Exit(0)
-		}
-		err := gcl.Clone(args[0])
-		if err != nil {
-			log.Fatalln(fmt.Errorf("error %w", err))
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return gcl.CloneWithOptions(args[0], gcl.CloneOptions{
+			BaseDir: baseDir,
+		})
 	},
 }
 
@@ -35,4 +30,5 @@ func Execute() error {
 }
 
 func init() {
+	rootCmd.Flags().StringVar(&baseDir, "base-dir", "", "base directory for cloned repositories")
 }
