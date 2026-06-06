@@ -1,26 +1,35 @@
 package gcl
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-git/go-git/v6"
 )
 
 var (
 	scpLikeURLPattern = regexp.MustCompile(`^(?:[^@]+@)?([^:]+):/?(.+)$`)
-	plainClone        = git.PlainClone
+	plainClone        = git.PlainCloneContext
+	statusInterval    = 30 * time.Second
 )
 
 type CloneOptions struct {
-	BaseDir  string
-	Progress io.Writer
+	BaseDir        string
+	Context        context.Context
+	Depth          int
+	Progress       io.Writer
+	SkipSubmodules bool
 }
 
 func dirExists(path string) (bool, error) {
@@ -39,46 +48,201 @@ func Clone(gitUrl string) error {
 }
 
 func CloneWithOptions(gitUrl string, opts CloneOptions) error {
+	start := time.Now()
 	clonePath, err := clonePathFor(gitUrl, opts.BaseDir)
 	if err != nil {
 		return err
 	}
+	out := newLockedWriter(outputWriter(opts.Progress))
 
 	exists, err := dirExists(clonePath)
 	if err != nil {
 		return err
 	}
 	if exists {
-		fmt.Printf("Directory already exists: %s\n", clonePath)
+		fmt.Fprintf(out, "Directory already exists: %s\n", clonePath)
 		return nil
 	}
 
-	fmt.Printf("Clone Path: %s\n", clonePath)
+	fmt.Fprintf(out, "Cloning %s\n", gitUrl)
+	fmt.Fprintf(out, "Target: %s\n", clonePath)
+	if opts.Depth > 0 {
+		fmt.Fprintf(out, "Depth: %d\n", opts.Depth)
+	}
+	if opts.SkipSubmodules {
+		fmt.Fprintln(out, "Submodules: skipped")
+	}
+
+	ctx := opts.Context
+	stop := func() {}
+	if ctx == nil {
+		ctx, stop = signal.NotifyContext(context.Background(), os.Interrupt)
+	}
+	defer stop()
 
 	err = os.MkdirAll(filepath.Dir(clonePath), 0o750)
 	if err != nil {
 		return err
 	}
 
-	progress := opts.Progress
-	if progress == nil {
-		progress = os.Stdout
+	tempPath, err := os.MkdirTemp(filepath.Dir(clonePath), ".gcl-"+filepath.Base(clonePath)+"-*")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Preparing temporary clone: %s\n", tempPath)
+
+	recurseSubmodules := git.DefaultSubmoduleRecursionDepth
+	if opts.SkipSubmodules {
+		recurseSubmodules = git.NoRecurseSubmodules
 	}
 
-	_, err = plainClone(clonePath, &git.CloneOptions{
+	err = runCloneWithStatus(ctx, out, start, tempPath, &git.CloneOptions{
 		URL:               gitUrl,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		Progress:          progress,
+		Depth:             opts.Depth,
+		RecurseSubmodules: recurseSubmodules,
+		Progress:          newProgressWriter(out),
 	})
 	if err != nil {
-		cleanupErr := os.RemoveAll(clonePath)
+		fmt.Fprintf(out, "Clone failed after %s; cleaning up temporary directory\n", elapsed(start))
+		cleanupErr := os.RemoveAll(tempPath)
 		if cleanupErr != nil {
 			return errors.Join(err, cleanupErr)
 		}
 		return err
 	}
 
+	err = os.Rename(tempPath, clonePath)
+	if err != nil {
+		cleanupErr := os.RemoveAll(tempPath)
+		if cleanupErr != nil {
+			return errors.Join(err, cleanupErr)
+		}
+		return err
+	}
+
+	fmt.Fprintf(out, "Done in %s\n", elapsed(start))
+
 	return nil
+}
+
+func runCloneWithStatus(ctx context.Context, out io.Writer, start time.Time, tempPath string, opts *git.CloneOptions) error {
+	done := make(chan error, 1)
+	go func() {
+		_, err := plainClone(ctx, tempPath, opts)
+		done <- err
+	}()
+
+	var ticker *time.Ticker
+	var ticks <-chan time.Time
+	if statusInterval > 0 {
+		ticker = time.NewTicker(statusInterval)
+		defer ticker.Stop()
+		ticks = ticker.C
+	}
+
+	cancelReported := false
+	ctxDone := ctx.Done()
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-ticks:
+			fmt.Fprintf(out, "Still cloning after %s; large repositories can be quiet while packfiles download\n", elapsed(start))
+		case <-ctxDone:
+			if !cancelReported {
+				fmt.Fprintf(out, "Cancel requested; waiting for clone operation to stop\n")
+				cancelReported = true
+			}
+			ctxDone = nil
+		}
+	}
+}
+
+func outputWriter(progress io.Writer) io.Writer {
+	if progress != nil {
+		return progress
+	}
+	return os.Stdout
+}
+
+func elapsed(start time.Time) time.Duration {
+	return time.Since(start).Round(time.Second)
+}
+
+type progressWriter struct {
+	out       io.Writer
+	lineStart bool
+}
+
+func newProgressWriter(out io.Writer) io.Writer {
+	return &progressWriter{
+		out:       out,
+		lineStart: true,
+	}
+}
+
+func (w *progressWriter) Write(p []byte) (int, error) {
+	written := len(p)
+	for len(p) > 0 {
+		if w.lineStart {
+			if _, err := fmt.Fprint(w.out, "remote: "); err != nil {
+				return 0, err
+			}
+			w.lineStart = false
+		}
+
+		nextBreak, separator := nextProgressBreak(p)
+		if nextBreak == -1 {
+			if _, err := w.out.Write(p); err != nil {
+				return 0, err
+			}
+			return written, nil
+		}
+
+		if _, err := w.out.Write(p[:nextBreak]); err != nil {
+			return 0, err
+		}
+		if separator == '\r' {
+			if _, err := fmt.Fprintln(w.out); err != nil {
+				return 0, err
+			}
+		} else if _, err := w.out.Write([]byte{separator}); err != nil {
+			return 0, err
+		}
+		w.lineStart = true
+		p = p[nextBreak+1:]
+	}
+	return written, nil
+}
+
+func nextProgressBreak(p []byte) (int, byte) {
+	nextNewline := bytes.IndexByte(p, '\n')
+	nextCarriageReturn := bytes.IndexByte(p, '\r')
+	switch {
+	case nextNewline == -1:
+		return nextCarriageReturn, '\r'
+	case nextCarriageReturn == -1:
+		return nextNewline, '\n'
+	case nextCarriageReturn < nextNewline:
+		return nextCarriageReturn, '\r'
+	default:
+		return nextNewline, '\n'
+	}
+}
+
+type lockedWriter struct {
+	mu  sync.Mutex
+	out io.Writer
+}
+
+func newLockedWriter(out io.Writer) io.Writer {
+	return &lockedWriter{out: out}
+}
+
+func (w *lockedWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.out.Write(p)
 }
 
 func clonePathFor(gitUrl string, baseDirOverride string) (string, error) {

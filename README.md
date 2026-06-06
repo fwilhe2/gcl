@@ -27,6 +27,13 @@ Use `--base-dir` for a one-off override:
 gcl --base-dir ~/work https://github.com/fwilhe2/gcl
 ```
 
+For large repositories, use `--depth` for a shallow clone and
+`--no-submodules` when you do not need submodules:
+
+```sh
+gcl --depth 1 --no-submodules https://github.com/owner/large-repo
+```
+
 Supported URL formats include HTTPS URLs, `ssh://` URLs, and scp-like SSH URLs:
 
 ```sh

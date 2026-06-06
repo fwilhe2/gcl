@@ -7,8 +7,10 @@ import (
 )
 
 var (
-	version = "dev"
-	baseDir string
+	version        = "dev"
+	baseDir        string
+	depth          int
+	skipSubmodules bool
 )
 
 var rootCmd = &cobra.Command{
@@ -19,7 +21,9 @@ var rootCmd = &cobra.Command{
 	Version: version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return gcl.CloneWithOptions(args[0], gcl.CloneOptions{
-			BaseDir: baseDir,
+			BaseDir:        baseDir,
+			Depth:          depth,
+			SkipSubmodules: skipSubmodules,
 		})
 	},
 }
@@ -32,4 +36,6 @@ func Execute() error {
 
 func init() {
 	rootCmd.Flags().StringVar(&baseDir, "base-dir", "", "base directory for cloned repositories")
+	rootCmd.Flags().IntVar(&depth, "depth", 0, "create a shallow clone with the given history depth")
+	rootCmd.Flags().BoolVar(&skipSubmodules, "no-submodules", false, "skip cloning submodules")
 }
