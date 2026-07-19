@@ -49,11 +49,12 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 		return err
 	}
 	if exists {
-		fmt.Printf("Directory already exists: %s\n", clonePath)
+		fmt.Fprintf(os.Stderr, "Directory already exists: %s\n", clonePath)
+		fmt.Println(clonePath)
 		return nil
 	}
 
-	fmt.Printf("Clone Path: %s\n", clonePath)
+	fmt.Fprintf(os.Stderr, "Cloning into %s\n", clonePath)
 
 	err = os.MkdirAll(filepath.Dir(clonePath), 0o750)
 	if err != nil {
@@ -62,7 +63,7 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 
 	progress := opts.Progress
 	if progress == nil {
-		progress = os.Stdout
+		progress = os.Stderr
 	}
 
 	_, err = plainClone(clonePath, &git.CloneOptions{
@@ -78,6 +79,7 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 		return err
 	}
 
+	fmt.Println(clonePath)
 	return nil
 }
 
@@ -98,8 +100,8 @@ func clonePathFor(gitUrl string, baseDirOverride string) (string, error) {
 func parseCloneURL(gitUrl string) (string, string, error) {
 	if !strings.Contains(gitUrl, "://") {
 		if matches := scpLikeURLPattern.FindStringSubmatch(gitUrl); matches != nil && !strings.Contains(matches[1], "/") {
-			repoPath := strings.TrimPrefix(matches[2], "/")
-			if err := validateRepoPath(repoPath); err != nil {
+			repoPath, err := normalizeRepoPath(matches[2])
+			if err != nil {
 				return "", "", err
 			}
 			return matches[1], repoPath, nil
@@ -115,24 +117,29 @@ func parseCloneURL(gitUrl string) (string, string, error) {
 	if host == "" {
 		host = urlComponents.Host
 	}
-	repoPath := strings.TrimPrefix(urlComponents.Path, "/")
-	if host == "" || repoPath == "" {
+	if host == "" || strings.Trim(urlComponents.Path, "/") == "" {
 		return "", "", fmt.Errorf("unsupported git URL: %s", gitUrl)
 	}
-	if err := validateRepoPath(repoPath); err != nil {
+	repoPath, err := normalizeRepoPath(urlComponents.Path)
+	if err != nil {
 		return "", "", err
 	}
 
 	return host, repoPath, nil
 }
 
-func validateRepoPath(repoPath string) error {
-	for _, part := range strings.Split(repoPath, "/") {
+func normalizeRepoPath(repoPath string) (string, error) {
+	normalized := strings.Trim(repoPath, "/")
+	normalized = strings.TrimSuffix(normalized, ".git")
+	if normalized == "" {
+		return "", fmt.Errorf("unsupported repository path: %s", repoPath)
+	}
+	for part := range strings.SplitSeq(normalized, "/") {
 		if part == "" || part == ".." {
-			return fmt.Errorf("unsupported repository path: %s", repoPath)
+			return "", fmt.Errorf("unsupported repository path: %s", repoPath)
 		}
 	}
-	return nil
+	return normalized, nil
 }
 
 func cloneBaseDir(baseDir string) (string, error) {

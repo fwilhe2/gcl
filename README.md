@@ -27,12 +27,21 @@ Use `--base-dir` for a one-off override:
 gcl --base-dir ~/work https://github.com/fwilhe2/gcl
 ```
 
-Supported URL formats include HTTPS URLs, `ssh://` URLs, and scp-like SSH URLs:
+Supported URL formats include HTTPS URLs, `ssh://` URLs, and scp-like SSH URLs.
+A trailing `.git` or `/` is stripped, so all of these end up in the same
+directory:
 
 ```sh
 gcl https://github.com/fwilhe2/gcl
 gcl ssh://git@github.com/fwilhe2/gcl.git
 gcl git@github.com:fwilhe2/gcl.git
+```
+
+`gcl` prints the clone path on stdout (progress and status messages go to
+stderr), so you can jump straight into the repository:
+
+```sh
+cd "$(gcl https://github.com/fwilhe2/gcl)"
 ```
 
 ## Releases

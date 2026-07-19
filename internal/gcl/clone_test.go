@@ -93,7 +93,7 @@ func TestClonePathForSSHURL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl.git")
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl")
 	if got != want {
 		t.Fatalf("clonePathFor() = %q, want %q", got, want)
 	}
@@ -107,7 +107,35 @@ func TestClonePathForScpLikeURL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl.git")
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl")
+	if got != want {
+		t.Fatalf("clonePathFor() = %q, want %q", got, want)
+	}
+}
+
+func TestClonePathStripsGitSuffix(t *testing.T) {
+	baseDir := t.TempDir()
+
+	got, err := clonePathFor("https://github.com/fwilhe2/gcl.git", baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl")
+	if got != want {
+		t.Fatalf("clonePathFor() = %q, want %q", got, want)
+	}
+}
+
+func TestClonePathTrimsTrailingSlash(t *testing.T) {
+	baseDir := t.TempDir()
+
+	got, err := clonePathFor("https://github.com/fwilhe2/gcl/", baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl")
 	if got != want {
 		t.Fatalf("clonePathFor() = %q, want %q", got, want)
 	}
