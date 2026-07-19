@@ -44,6 +44,20 @@ stderr), so you can jump straight into the repository:
 cd "$(gcl https://github.com/fwilhe2/gcl)"
 ```
 
+## Cloning all repositories of an organization or user
+
+Pass the URL of a GitHub organization or user (a URL with a single path
+segment) to clone all of its repositories into the same layout:
+
+```sh
+gcl https://github.com/my-org
+```
+
+Each repository is cloned below `<base-dir>/github.com/my-org/`; already
+cloned repositories are skipped. Set `GITHUB_TOKEN` to raise the API rate
+limit for listing repositories. Support for other forges (GitLab, etc.) is
+planned; for now only `github.com` URLs work in this mode.
+
 ## Releases
 
 Releases are built by GitHub Actions when a `v*` tag is pushed:

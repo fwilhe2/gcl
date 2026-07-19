@@ -39,6 +39,15 @@ func Clone(gitUrl string) error {
 }
 
 func CloneWithOptions(gitUrl string, opts CloneOptions) error {
+	host, repoPath, err := parseCloneURL(gitUrl)
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(repoPath, "/") {
+		return cloneOwner(host, repoPath, opts)
+	}
+
 	clonePath, err := clonePathFor(gitUrl, opts.BaseDir)
 	if err != nil {
 		return err
@@ -81,6 +90,32 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 
 	fmt.Println(clonePath)
 	return nil
+}
+
+func cloneOwner(host, owner string, opts CloneOptions) error {
+	forge, ok := forgeForHost(host)
+	if !ok {
+		return fmt.Errorf("cloning all repositories of an owner is not supported for host %s", host)
+	}
+
+	cloneURLs, err := forge.ListCloneURLs(owner)
+	if err != nil {
+		return err
+	}
+	if len(cloneURLs) == 0 {
+		return fmt.Errorf("no repositories found for %s on %s", owner, host)
+	}
+
+	fmt.Fprintf(os.Stderr, "Found %d repositories for %s\n", len(cloneURLs), owner)
+
+	var errs []error
+	for _, cloneURL := range cloneURLs {
+		if err := CloneWithOptions(cloneURL, opts); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to clone %s: %v\n", cloneURL, err)
+			errs = append(errs, fmt.Errorf("%s: %w", cloneURL, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func clonePathFor(gitUrl string, baseDirOverride string) (string, error) {

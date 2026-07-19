@@ -12,9 +12,13 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "gcl <repository-url>",
-	Short:   "git clone wrapper with opinionated directory layout",
-	Long:    `git clone wrapper with opinionated directory layout`,
+	Use:   "gcl <repository-url|owner-url>",
+	Short: "git clone wrapper with opinionated directory layout",
+	Long: `git clone wrapper with opinionated directory layout
+
+Pass a repository URL to clone a single repository, or the URL of an
+organization or user (e.g. https://github.com/my-org) to clone all of
+its repositories.`,
 	Args:    cobra.ExactArgs(1),
 	Version: version,
 	RunE: func(cmd *cobra.Command, args []string) error {

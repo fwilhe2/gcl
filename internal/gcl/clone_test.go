@@ -155,6 +155,74 @@ func TestClonePathRejectsRepoPathTraversal(t *testing.T) {
 	}
 }
 
+type stubForge struct {
+	cloneURLs []string
+}
+
+func (s *stubForge) ListCloneURLs(owner string) ([]string, error) {
+	return s.cloneURLs, nil
+}
+
+func TestCloneOwnerClonesAllRepositories(t *testing.T) {
+	baseDir := t.TempDir()
+
+	previousForgeForHost := forgeForHost
+	previousPlainClone := plainClone
+	t.Cleanup(func() {
+		forgeForHost = previousForgeForHost
+		plainClone = previousPlainClone
+	})
+
+	forgeForHost = func(host string) (Forge, bool) {
+		if host != "example.com" {
+			t.Fatalf("unexpected host: %s", host)
+		}
+		return &stubForge{cloneURLs: []string{
+			"https://example.com/myorg/one.git",
+			"https://example.com/myorg/two.git",
+		}}, true
+	}
+
+	var clonedPaths []string
+	plainClone = func(path string, opts *git.CloneOptions) (*git.Repository, error) {
+		clonedPaths = append(clonedPaths, path)
+		if err := os.MkdirAll(path, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		return nil, nil
+	}
+
+	err := CloneWithOptions("https://example.com/myorg", CloneOptions{
+		BaseDir:  baseDir,
+		Progress: io.Discard,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		filepath.Join(baseDir, "example.com", "myorg", "one"),
+		filepath.Join(baseDir, "example.com", "myorg", "two"),
+	}
+	if len(clonedPaths) != len(want) {
+		t.Fatalf("cloned paths = %v, want %v", clonedPaths, want)
+	}
+	for i := range want {
+		if clonedPaths[i] != want[i] {
+			t.Fatalf("cloned paths = %v, want %v", clonedPaths, want)
+		}
+	}
+}
+
+func TestCloneOwnerUnsupportedHost(t *testing.T) {
+	err := CloneWithOptions("https://example.org/myorg", CloneOptions{
+		BaseDir: t.TempDir(),
+	})
+	if err == nil {
+		t.Fatal("CloneWithOptions() succeeded, want error")
+	}
+}
+
 func TestCloneRemovesTargetDirectoryAfterFailedClone(t *testing.T) {
 	baseDir := t.TempDir()
 	cloneErr := errors.New("clone failed")
