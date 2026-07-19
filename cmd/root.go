@@ -9,6 +9,7 @@ import (
 var (
 	version = "dev"
 	baseDir string
+	all     bool
 )
 
 var rootCmd = &cobra.Command{
@@ -17,13 +18,14 @@ var rootCmd = &cobra.Command{
 	Long: `git clone wrapper with opinionated directory layout
 
 Pass a repository URL to clone a single repository, or the URL of an
-organization or user (e.g. https://github.com/my-org) to clone all of
-its repositories.`,
+organization, user, or group (e.g. https://github.com/my-org) to clone
+all of its repositories.`,
 	Args:    cobra.ExactArgs(1),
 	Version: version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return gcl.CloneWithOptions(args[0], gcl.CloneOptions{
 			BaseDir: baseDir,
+			All:     all,
 		})
 	},
 }
@@ -36,4 +38,5 @@ func Execute() error {
 
 func init() {
 	rootCmd.Flags().StringVar(&baseDir, "base-dir", "", "base directory for cloned repositories")
+	rootCmd.Flags().BoolVar(&all, "all", false, "clone all repositories of the given owner, even for URLs with multiple path segments (e.g. GitLab subgroups)")
 }

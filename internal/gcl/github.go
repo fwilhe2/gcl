@@ -1,15 +1,11 @@
 package gcl
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 )
-
-var errOwnerNotFound = errors.New("owner not found")
 
 type gitHubForge struct {
 	apiBase string
@@ -27,6 +23,10 @@ func newGitHubForge(apiBase string) *gitHubForge {
 	}
 }
 
+type gitHubRepo struct {
+	CloneURL string `json:"clone_url"`
+}
+
 func (g *gitHubForge) ListCloneURLs(owner string) ([]string, error) {
 	urls, err := g.listRepos("orgs", owner)
 	if errors.Is(err, errOwnerNotFound) {
@@ -36,11 +36,19 @@ func (g *gitHubForge) ListCloneURLs(owner string) ([]string, error) {
 }
 
 func (g *gitHubForge) listRepos(ownerKind, owner string) ([]string, error) {
+	header := http.Header{}
+	header.Set("Accept", "application/vnd.github+json")
+	if g.token != "" {
+		header.Set("Authorization", "Bearer "+g.token)
+	}
+
 	var urls []string
 	for page := 1; ; page++ {
-		repos, err := g.listReposPage(ownerKind, owner, page)
+		requestURL := fmt.Sprintf("%s/%s/%s/repos?per_page=%d&page=%d&sort=full_name", g.apiBase, ownerKind, owner, g.perPage, page)
+
+		repos, err := getJSONList[gitHubRepo](g.client, requestURL, header)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("listing repositories of %s: %w", owner, err)
 		}
 		for _, repo := range repos {
 			urls = append(urls, repo.CloneURL)
@@ -49,40 +57,4 @@ func (g *gitHubForge) listRepos(ownerKind, owner string) ([]string, error) {
 			return urls, nil
 		}
 	}
-}
-
-type gitHubRepo struct {
-	CloneURL string `json:"clone_url"`
-}
-
-func (g *gitHubForge) listReposPage(ownerKind, owner string, page int) ([]gitHubRepo, error) {
-	url := fmt.Sprintf("%s/%s/%s/repos?per_page=%d&page=%d&sort=full_name", g.apiBase, ownerKind, owner, g.perPage, page)
-	request, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Accept", "application/vnd.github+json")
-	if g.token != "" {
-		request.Header.Set("Authorization", "Bearer "+g.token)
-	}
-
-	response, err := g.client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("%w: %s", errOwnerNotFound, owner)
-	}
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(response.Body, 1024))
-		return nil, fmt.Errorf("listing repositories of %s failed: %s: %s", owner, response.Status, body)
-	}
-
-	var repos []gitHubRepo
-	if err := json.NewDecoder(response.Body).Decode(&repos); err != nil {
-		return nil, err
-	}
-	return repos, nil
 }

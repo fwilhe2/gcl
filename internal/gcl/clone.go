@@ -21,6 +21,10 @@ var (
 type CloneOptions struct {
 	BaseDir  string
 	Progress io.Writer
+	// All treats the URL as an owner (organization, user, or group)
+	// and clones all of its repositories, even if the URL has more
+	// than one path segment (e.g. a GitLab subgroup).
+	All bool
 }
 
 func dirExists(path string) (bool, error) {
@@ -44,7 +48,7 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 		return err
 	}
 
-	if !strings.Contains(repoPath, "/") {
+	if opts.All || !strings.Contains(repoPath, "/") {
 		return cloneOwner(host, repoPath, opts)
 	}
 
@@ -108,9 +112,12 @@ func cloneOwner(host, owner string, opts CloneOptions) error {
 
 	fmt.Fprintf(os.Stderr, "Found %d repositories for %s\n", len(cloneURLs), owner)
 
+	repoOpts := opts
+	repoOpts.All = false
+
 	var errs []error
 	for _, cloneURL := range cloneURLs {
-		if err := CloneWithOptions(cloneURL, opts); err != nil {
+		if err := CloneWithOptions(cloneURL, repoOpts); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to clone %s: %v\n", cloneURL, err)
 			errs = append(errs, fmt.Errorf("%s: %w", cloneURL, err))
 		}

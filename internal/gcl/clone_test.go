@@ -156,10 +156,14 @@ func TestClonePathRejectsRepoPathTraversal(t *testing.T) {
 }
 
 type stubForge struct {
-	cloneURLs []string
+	cloneURLs    []string
+	listedOwners *[]string
 }
 
 func (s *stubForge) ListCloneURLs(owner string) ([]string, error) {
+	if s.listedOwners != nil {
+		*s.listedOwners = append(*s.listedOwners, owner)
+	}
 	return s.cloneURLs, nil
 }
 
@@ -211,6 +215,51 @@ func TestCloneOwnerClonesAllRepositories(t *testing.T) {
 		if clonedPaths[i] != want[i] {
 			t.Fatalf("cloned paths = %v, want %v", clonedPaths, want)
 		}
+	}
+}
+
+func TestCloneAllTreatsMultiSegmentPathAsOwner(t *testing.T) {
+	baseDir := t.TempDir()
+
+	previousForgeForHost := forgeForHost
+	previousPlainClone := plainClone
+	t.Cleanup(func() {
+		forgeForHost = previousForgeForHost
+		plainClone = previousPlainClone
+	})
+
+	var listedOwners []string
+	forgeForHost = func(host string) (Forge, bool) {
+		return &stubForge{cloneURLs: []string{
+			"https://example.com/mygroup/sub/one.git",
+		}, listedOwners: &listedOwners}, true
+	}
+
+	var clonedPaths []string
+	plainClone = func(path string, opts *git.CloneOptions) (*git.Repository, error) {
+		clonedPaths = append(clonedPaths, path)
+		if err := os.MkdirAll(path, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		return nil, nil
+	}
+
+	err := CloneWithOptions("https://example.com/mygroup/sub", CloneOptions{
+		BaseDir:  baseDir,
+		Progress: io.Discard,
+		All:      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(listedOwners) != 1 || listedOwners[0] != "mygroup/sub" {
+		t.Fatalf("listed owners = %v, want [mygroup/sub]", listedOwners)
+	}
+
+	want := []string{filepath.Join(baseDir, "example.com", "mygroup", "sub", "one")}
+	if len(clonedPaths) != 1 || clonedPaths[0] != want[0] {
+		t.Fatalf("cloned paths = %v, want %v", clonedPaths, want)
 	}
 }
 

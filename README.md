@@ -44,19 +44,37 @@ stderr), so you can jump straight into the repository:
 cd "$(gcl https://github.com/fwilhe2/gcl)"
 ```
 
-## Cloning all repositories of an organization or user
+## Cloning all repositories of an organization, user, or group
 
-Pass the URL of a GitHub organization or user (a URL with a single path
-segment) to clone all of its repositories into the same layout:
+Pass the URL of an organization or user (a URL with a single path segment)
+to clone all of its repositories into the same layout:
 
 ```sh
 gcl https://github.com/my-org
+gcl https://gitlab.com/my-group
 ```
 
-Each repository is cloned below `<base-dir>/github.com/my-org/`; already
-cloned repositories are skipped. Set `GITHUB_TOKEN` to raise the API rate
-limit for listing repositories. Support for other forges (GitLab, etc.) is
-planned; for now only `github.com` URLs work in this mode.
+Each repository is cloned below `<base-dir>/<host>/<owner>/`; already
+cloned repositories are skipped, so an interrupted run can simply be
+restarted. GitLab group listings include all nested subgroups, and the
+nested layout is preserved on disk.
+
+To clone a GitLab subgroup (whose URL has more than one path segment),
+pass `--all` to force owner mode:
+
+```sh
+gcl --all https://gitlab.com/my-group/my-subgroup
+```
+
+Supported forges are `github.com` and `gitlab.com`. For self-hosted GitLab
+instances, list their hostnames in `GCL_GITLAB_HOSTS`:
+
+```sh
+GCL_GITLAB_HOSTS=git.example.com gcl https://git.example.com/my-group
+```
+
+Set `GITHUB_TOKEN` or `GITLAB_TOKEN` to authenticate the repository
+listing (higher rate limits, private repositories).
 
 ## Releases
 
