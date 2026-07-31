@@ -4,45 +4,35 @@
 # SPDX-License-Identifier: MIT
 
 name: Release
-
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Existing git tag to release, for example v1.2.3"
+      component:
+        description: "Version component to increment"
         required: true
-        type: string
-
+        default: "patch"
 permissions:
   contents: write
-
-concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-  cancel-in-progress: false
-
 jobs:
-  release:
-    name: Release
+  build:
+    name: Create Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
-
-      - name: Test
-        run: go test -v ./...
-
+      - name: Get Version Number
+        uses: fwilhe2/bump-version@main
+        id: bump
+        with:
+          component: ${{ github.event.inputs.component }}
+      - run: git tag ${{ steps.bump.outputs.newVersion }}
+      - run: git push --tags
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

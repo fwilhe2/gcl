@@ -7,7 +7,7 @@ format:
 	gofumpt -w $$(find . -name '*.go')
 
 build:
-	go build -v -ldflags "$(LDFLAGS)" -o gcl main.go
+	go build -v -ldflags "$(LDFLAGS)" -o gcl .
 
 test:
 	go test -v ./...

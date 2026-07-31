@@ -7,7 +7,6 @@ import (
 )
 
 var (
-	version = "dev"
 	baseDir string
 	all     bool
 )
@@ -20,8 +19,7 @@ var rootCmd = &cobra.Command{
 Pass a repository URL to clone a single repository, or the URL of an
 organization, user, or group (e.g. https://github.com/my-org) to clone
 all of its repositories.`,
-	Args:    cobra.ExactArgs(1),
-	Version: version,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return gcl.CloneWithOptions(args[0], gcl.CloneOptions{
 			BaseDir: baseDir,
@@ -32,11 +30,13 @@ all of its repositories.`,
 
 // Execute executes the root command.
 func Execute() error {
-	rootCmd.Version = version
 	return rootCmd.Execute()
 }
 
 func init() {
+	rootCmd.Version = versionInfo()
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
+
 	rootCmd.Flags().StringVar(&baseDir, "base-dir", "", "base directory for cloned repositories")
 	rootCmd.Flags().BoolVar(&all, "all", false, "clone all repositories of the given owner, even for URLs with multiple path segments (e.g. GitLab subgroups)")
 }
