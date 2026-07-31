@@ -1,35 +1,56 @@
 # gcl
-git clone wrapper with automatic directory layout
 
-`gcl` clones repositories into a predictable host/owner/repo directory layout.
+`gcl` is a `git clone` wrapper that puts every repository where you can find it
+again: a predictable `<base-dir>/<host>/<owner>/<repo>` layout.
+
+```sh
+gcl https://github.com/fwilhe2/gcl
+# → ~/code/github.com/fwilhe2/gcl
+```
+
+It can also clone *every* repository of a GitHub organization, a GitHub user,
+or a GitLab group in one go, and it prints the clone path on stdout so you can
+`cd` straight into it.
+
+## Install
+
+Download a binary for your platform from the
+[latest release](https://github.com/fwilhe2/gcl/releases/latest) and put it on
+your `PATH`:
+
+```sh
+tar -xzf gcl_Linux_x86_64.tar.gz
+sudo install gcl /usr/local/bin
+```
+
+Archives are published for Linux, macOS, and Windows (x86_64, arm64, i386).
+
+Or build from source (Go 1.24+):
+
+```sh
+go install github.com/fwilhe2/gcl@latest
+```
 
 ## Usage
+
+```text
+gcl <repository-url|owner-url> [flags]
+
+Flags:
+      --all               clone all repositories of the given owner, even for URLs
+                          with multiple path segments (e.g. GitLab subgroups)
+      --base-dir string   base directory for cloned repositories
+  -v, --version           version for gcl
+```
+
+### Cloning a single repository
 
 ```sh
 gcl https://github.com/fwilhe2/gcl
 ```
 
-By default, repositories are cloned below `~/code`:
-
-```text
-~/code/github.com/fwilhe2/gcl
-```
-
-Set `GCL_BASE_DIR` to use a different default base directory:
-
-```sh
-GCL_BASE_DIR=~/src gcl https://github.com/fwilhe2/gcl
-```
-
-Use `--base-dir` for a one-off override:
-
-```sh
-gcl --base-dir ~/work https://github.com/fwilhe2/gcl
-```
-
-Supported URL formats include HTTPS URLs, `ssh://` URLs, and scp-like SSH URLs.
-A trailing `.git` or `/` is stripped, so all of these end up in the same
-directory:
+HTTPS URLs, `ssh://` URLs, and scp-like SSH URLs all work, and a trailing
+`.git` or `/` is stripped — so these end up in the same directory:
 
 ```sh
 gcl https://github.com/fwilhe2/gcl
@@ -37,30 +58,50 @@ gcl ssh://git@github.com/fwilhe2/gcl.git
 gcl git@github.com:fwilhe2/gcl.git
 ```
 
-`gcl` prints the clone path on stdout (progress and status messages go to
-stderr), so you can jump straight into the repository:
+Submodules are cloned recursively. If the target directory already exists,
+`gcl` leaves it alone and just prints its path — so re-running is safe.
+
+### Jumping into the clone
+
+Progress and status messages go to stderr, the clone path goes to stdout:
 
 ```sh
 cd "$(gcl https://github.com/fwilhe2/gcl)"
 ```
 
-## Cloning all repositories of an organization, user, or group
+A handy shell function:
 
-Pass the URL of an organization or user (a URL with a single path segment)
-to clone all of its repositories into the same layout:
+```sh
+gclcd() { cd "$(gcl "$1")"; }
+```
+
+### Choosing where things land
+
+By default everything is cloned below `~/code`. Change it permanently with
+`GCL_BASE_DIR`, or per invocation with `--base-dir`:
+
+```sh
+export GCL_BASE_DIR=~/src              # ~/src/github.com/fwilhe2/gcl
+gcl --base-dir ~/work https://github.com/fwilhe2/gcl
+```
+
+### Cloning everything of an organization, user, or group
+
+Pass an owner URL — a URL with a single path segment — and `gcl` clones all of
+its repositories into the same layout:
 
 ```sh
 gcl https://github.com/my-org
 gcl https://gitlab.com/my-group
 ```
 
-Each repository is cloned below `<base-dir>/<host>/<owner>/`; already
-cloned repositories are skipped, so an interrupted run can simply be
-restarted. GitLab group listings include all nested subgroups, and the
-nested layout is preserved on disk.
+Already cloned repositories are skipped, so an interrupted run can simply be
+restarted. Failures are reported per repository and don't abort the rest of the
+run. GitLab group listings include all nested subgroups, and the nested layout
+is preserved on disk.
 
-To clone a GitLab subgroup (whose URL has more than one path segment),
-pass `--all` to force owner mode:
+A GitLab subgroup URL has more than one path segment and would otherwise look
+like a repository, so force owner mode with `--all`:
 
 ```sh
 gcl --all https://gitlab.com/my-group/my-subgroup
@@ -70,25 +111,87 @@ Supported forges are `github.com` and `gitlab.com`. For self-hosted GitLab
 instances, list their hostnames in `GCL_GITLAB_HOSTS`:
 
 ```sh
-GCL_GITLAB_HOSTS=git.example.com gcl https://git.example.com/my-group
+GCL_GITLAB_HOSTS=git.example.com,gitlab.internal gcl https://git.example.com/my-group
 ```
 
-Set `GITHUB_TOKEN` or `GITLAB_TOKEN` to authenticate the repository
-listing (higher rate limits, private repositories).
+### Authentication
 
-## Releases
+For cloning over HTTP(S), `gcl` asks your configured git credential helper
+(`git credential fill`) for credentials — whatever already works for
+`git clone` works here. It never prompts interactively: if no helper has a
+matching credential, the clone proceeds unauthenticated. SSH URLs use your
+normal SSH setup.
 
-Releases are built by GitHub Actions when a `v*` tag is pushed:
+Listing an owner's repositories goes through the forge API instead. Set
+`GITHUB_TOKEN` or `GITLAB_TOKEN` for higher rate limits and access to private
+repositories.
+
+### Configuration reference
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `GCL_BASE_DIR` | Base directory for clones (`~` is expanded) | `~/code` |
+| `GCL_GITLAB_HOSTS` | Comma-separated hostnames to treat as GitLab | — |
+| `GITHUB_TOKEN` | Auth for the GitHub repository listing API | — |
+| `GITLAB_TOKEN` | Auth for the GitLab repository listing API | — |
+
+## Development
 
 ```sh
-git tag v1.2.3
-git push origin v1.2.3
+make            # format, build, test
+make build      # go build -o gcl .
+make test       # go test ./...
+make format     # gofumpt
+make install    # install ./gcl to /usr/local/bin
+make update     # go get -u && go mod tidy
 ```
 
-The release workflow uses GoReleaser and bakes the tag version into Cobra's
-`--version` output. For local builds, pass `VERSION` to `make build`:
+`gcl --version` reports the version, commit, tree state, build time, and Go
+toolchain. Only the release pipeline stamps a real version, so local builds
+identify themselves as development builds:
+
+```console
+$ make build && ./gcl --version
+gcl v0.0.3-0.20260731160415-12df1a10e885+dirty (development build, not a release)
+commit: 12df1a10e88538af4b85a3be5409964a7a00286e (dirty git tree)
+built:  2026-07-31T16:04:15Z
+go:     go1.24.4 linux/amd64
+```
+
+Version, commit, and tree state fall back to the build info the Go toolchain
+embeds, which is why a local build shows a pseudo-version derived from the last
+tag — the `development build` marker is what distinguishes it from a release.
+
+Pass `VERSION` to mimic a release build locally:
 
 ```sh
 make build VERSION=1.2.3
-./gcl --version
 ```
+
+## Releasing
+
+Releases are cut by manually running the
+[Release workflow](.github/workflows/release.yml) — **not** by pushing a tag by
+hand. Trigger it from the Actions tab, or with the GitHub CLI:
+
+```sh
+gh workflow run Release -f component=patch   # or: minor, major
+```
+
+The workflow then:
+
+1. runs [`fwilhe2/bump-version`](https://github.com/fwilhe2/bump-version) to
+   derive the next version from the latest tag and the chosen `component`
+   (defaults to `patch`),
+2. creates and pushes that tag,
+3. runs [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`) to build the
+   cross-platform archives, stamp version/commit/date/tree state into the
+   binary via `-ldflags`, generate the changelog, and publish the GitHub
+   release.
+
+Every push and pull request to `main` additionally runs the
+[Build workflow](.github/workflows/go.yaml) (`go build` + `go test`).
+
+## License
+
+[Apache License 2.0](LICENSE)
