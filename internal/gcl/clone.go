@@ -81,6 +81,7 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 
 	_, err = plainClone(clonePath, &git.CloneOptions{
 		URL:               gitUrl,
+		Auth:              credentialFromHelper(gitUrl),
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 		Progress:          progress,
 	})
