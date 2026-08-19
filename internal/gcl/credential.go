@@ -8,14 +8,13 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/go-git/go-git/v6/plumbing/transport/http"
 )
 
 // credentialFromHelper invokes "git credential fill" to retrieve stored
 // credentials for the given repository URL. It returns nil if the URL is
 // not HTTP(S) or if no credentials could be obtained.
-func credentialFromHelper(gitUrl string) transport.AuthMethod {
+func credentialFromHelper(gitUrl string) *http.BasicAuth {
 	u, err := url.Parse(gitUrl)
 	if err != nil {
 		return nil

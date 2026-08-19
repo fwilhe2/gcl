@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/go-git/go-git/v6/plumbing/transport/http"
 )
 
@@ -60,20 +59,11 @@ func useStoredCredentials(t *testing.T, entries ...string) {
 	useGitCredentialHelper(t, "store --file="+filepath.ToSlash(credentials))
 }
 
-func basicAuth(t *testing.T, auth transport.AuthMethod) *http.BasicAuth {
-	t.Helper()
-	got, ok := auth.(*http.BasicAuth)
-	if !ok {
-		t.Fatalf("credentialFromHelper() = %T, want *http.BasicAuth", auth)
-	}
-	return got
-}
-
 func TestCredentialFromHelperReturnsStoredCredentials(t *testing.T) {
 	requireGit(t)
 	useStoredCredentials(t, "https://alice:s3cret@git.example.com")
 
-	got := basicAuth(t, credentialFromHelper("https://git.example.com/myorg/myrepo.git"))
+	got := credentialFromHelper("https://git.example.com/myorg/myrepo.git")
 	if got.Username != "alice" || got.Password != "s3cret" {
 		t.Fatalf("credentialFromHelper() = %q:%q, want %q:%q", got.Username, got.Password, "alice", "s3cret")
 	}
@@ -86,7 +76,7 @@ func TestCredentialFromHelperMatchesHostIncludingPort(t *testing.T) {
 		"https://alice:s3cret@git.example.com:8443",
 	)
 
-	got := basicAuth(t, credentialFromHelper("https://git.example.com:8443/myorg/myrepo.git"))
+	got := credentialFromHelper("https://git.example.com:8443/myorg/myrepo.git")
 	if got.Username != "alice" || got.Password != "s3cret" {
 		t.Fatalf("credentialFromHelper() = %q:%q, want %q:%q", got.Username, got.Password, "alice", "s3cret")
 	}
@@ -123,7 +113,7 @@ func TestCredentialFromHelperDoesNotPromptForUnknownHost(t *testing.T) {
 	requireGit(t)
 	useStoredCredentials(t)
 
-	done := make(chan transport.AuthMethod, 1)
+	done := make(chan *http.BasicAuth, 1)
 	go func() {
 		done <- credentialFromHelper("https://unknown.example.com/myorg/myrepo.git")
 	}()
@@ -168,7 +158,7 @@ func TestCredentialFromHelperUsesShellHelperOutput(t *testing.T) {
 	}
 	useGitCredentialHelper(t, "!f() { echo username=bot; echo password=tok3n; }; f")
 
-	got := basicAuth(t, credentialFromHelper("https://git.example.com/myorg/myrepo.git"))
+	got := credentialFromHelper("https://git.example.com/myorg/myrepo.git")
 	if got.Username != "bot" || got.Password != "tok3n" {
 		t.Fatalf("credentialFromHelper() = %q:%q, want %q:%q", got.Username, got.Password, "bot", "tok3n")
 	}
