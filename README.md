@@ -123,22 +123,6 @@ at a fixed path relative to the host, so list them in `GCL_GITHUB_HOSTS` as
 GCL_GITHUB_HOSTS=github.example.com=https://github.example.com/api/v3 gcl https://github.example.com/my-org
 ```
 
-For hosts you use permanently, put them in a config file instead of an env
-var. `gcl` reads `$GCL_CONFIG`, or `<user config dir>/gcl/config.json` (e.g.
-`~/.config/gcl/config.json` on Linux) if unset:
-
-```json
-{
-  "gitlab_hosts": ["git.example.com", "gitlab.internal"],
-  "github_hosts": {
-    "github.example.com": "https://github.example.com/api/v3"
-  }
-}
-```
-
-Env vars and the config file are merged, so either can be used on their own
-or together.
-
 ### Authentication
 
 For cloning over HTTP(S), `gcl` asks your configured git credential helper
@@ -153,14 +137,46 @@ repositories.
 
 ### Configuration reference
 
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `GCL_BASE_DIR` | Base directory for clones (`~` is expanded) | `~/code` |
-| `GCL_GITLAB_HOSTS` | Comma-separated hostnames to treat as GitLab | — |
-| `GCL_GITHUB_HOSTS` | Comma-separated `host=apiBaseURL` pairs to treat as GitHub | — |
-| `GCL_CONFIG` | Path to the config file | `<user config dir>/gcl/config.json` |
-| `GITHUB_TOKEN` | Auth for the GitHub repository listing API | — |
-| `GITLAB_TOKEN` | Auth for the GitLab repository listing API | — |
+Every setting below can be set with an env var, or, if you'd rather not repeat
+yourself in every shell, with the matching key in a JSON config file. Both can
+be used together — the env var wins if a setting is present in both.
+
+| Env var | Config file key | Purpose | Default |
+| --- | --- | --- | --- |
+| `GCL_BASE_DIR` | `base_dir` | Base directory for clones (`~` is expanded) | `~/code` |
+| `GCL_GITLAB_HOSTS` | `gitlab_hosts` | Hostnames to treat as GitLab | — |
+| `GCL_GITHUB_HOSTS` | `github_hosts` | Hosts to treat as GitHub, with their API base URL | — |
+| `GITHUB_TOKEN` | `github_token` | Auth for the GitHub repository listing API | — |
+| `GITLAB_TOKEN` | `gitlab_token` | Auth for the GitLab repository listing API | — |
+| `GCL_CONFIG` | — | Path to the config file itself | see below |
+
+#### Config file location
+
+`gcl` reads `$GCL_CONFIG` if set, otherwise the config file at the OS's
+standard per-user config location:
+
+| OS | Default path |
+| --- | --- |
+| Linux | `~/.config/gcl/config.json` (or `$XDG_CONFIG_HOME/gcl/config.json` if set) |
+| macOS | `~/Library/Application Support/gcl/config.json` |
+| Windows | `%AppData%\gcl\config.json` (typically `C:\Users\<you>\AppData\Roaming\gcl\config.json`) |
+
+The file is entirely optional, and a missing file is not an error.
+
+#### Full example
+
+```json
+{
+  "base_dir": "/home/alice/code",
+  "github_token": "ghp_ExampleGitHubToken1234567890",
+  "gitlab_token": "glpat-ExampleGitLabToken1234567",
+  "github_hosts": {
+    "github.example.com": "https://github.example.com/api/v3",
+    "ghe.corp.internal": "https://ghe.corp.internal/api/v3"
+  },
+  "gitlab_hosts": ["git.example.com", "gitlab.internal"]
+}
+```
 
 ## Development
 

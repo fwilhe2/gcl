@@ -7,9 +7,13 @@ import (
 	"path/filepath"
 )
 
-// fileConfig is the shape of the optional JSON config file used to
-// configure self-hosted forge instances (see configPath).
+// fileConfig is the shape of the optional JSON config file (see
+// configPath), covering the same settings as the env vars, which take
+// precedence over it when both are set.
 type fileConfig struct {
+	BaseDir     string            `json:"base_dir"`
+	GitHubToken string            `json:"github_token"`
+	GitLabToken string            `json:"gitlab_token"`
 	GitHubHosts map[string]string `json:"github_hosts"`
 	GitLabHosts []string          `json:"gitlab_hosts"`
 }

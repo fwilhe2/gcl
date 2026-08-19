@@ -195,6 +195,9 @@ func cloneBaseDir(baseDir string) (string, error) {
 		baseDir = os.Getenv("GCL_BASE_DIR")
 	}
 	if baseDir == "" {
+		baseDir = loadFileConfig().BaseDir
+	}
+	if baseDir == "" {
 		homedir, err := os.UserHomeDir()
 		if err != nil {
 			return "", err

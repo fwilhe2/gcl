@@ -39,6 +39,72 @@ func TestForgeForHostSelfHostedGitHubFromConfigFile(t *testing.T) {
 	}
 }
 
+func TestCloneBaseDirFromConfigFile(t *testing.T) {
+	t.Setenv("GCL_BASE_DIR", "")
+	writeConfig(t, `{"base_dir": "/from/config"}`)
+
+	got, err := cloneBaseDir("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/from/config" {
+		t.Fatalf("cloneBaseDir() = %q, want %q", got, "/from/config")
+	}
+}
+
+func TestCloneBaseDirEnvWinsOverConfigFile(t *testing.T) {
+	writeConfig(t, `{"base_dir": "/from/config"}`)
+	t.Setenv("GCL_BASE_DIR", "/from/env")
+
+	got, err := cloneBaseDir("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/from/env" {
+		t.Fatalf("cloneBaseDir() = %q, want %q", got, "/from/env")
+	}
+}
+
+func TestGitHubTokenFromConfigFile(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	writeConfig(t, `{"github_token": "tok3n"}`)
+
+	forge := newGitHubForge("https://api.github.com")
+	if forge.token != "tok3n" {
+		t.Fatalf("token = %q, want %q", forge.token, "tok3n")
+	}
+}
+
+func TestGitHubTokenEnvWinsOverConfigFile(t *testing.T) {
+	writeConfig(t, `{"github_token": "from-config"}`)
+	t.Setenv("GITHUB_TOKEN", "from-env")
+
+	forge := newGitHubForge("https://api.github.com")
+	if forge.token != "from-env" {
+		t.Fatalf("token = %q, want %q", forge.token, "from-env")
+	}
+}
+
+func TestGitLabTokenFromConfigFile(t *testing.T) {
+	t.Setenv("GITLAB_TOKEN", "")
+	writeConfig(t, `{"gitlab_token": "tok3n"}`)
+
+	forge := newGitLabForge("https://gitlab.com/api/v4")
+	if forge.token != "tok3n" {
+		t.Fatalf("token = %q, want %q", forge.token, "tok3n")
+	}
+}
+
+func TestGitLabTokenEnvWinsOverConfigFile(t *testing.T) {
+	writeConfig(t, `{"gitlab_token": "from-config"}`)
+	t.Setenv("GITLAB_TOKEN", "from-env")
+
+	forge := newGitLabForge("https://gitlab.com/api/v4")
+	if forge.token != "from-env" {
+		t.Fatalf("token = %q, want %q", forge.token, "from-env")
+	}
+}
+
 func TestLoadFileConfigIgnoresMissingFile(t *testing.T) {
 	t.Setenv("GCL_CONFIG", filepath.Join(t.TempDir(), "does-not-exist.json"))
 

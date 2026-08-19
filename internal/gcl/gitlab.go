@@ -17,9 +17,13 @@ type gitLabForge struct {
 }
 
 func newGitLabForge(apiBase string) *gitLabForge {
+	token := os.Getenv("GITLAB_TOKEN")
+	if token == "" {
+		token = loadFileConfig().GitLabToken
+	}
 	return &gitLabForge{
 		apiBase: apiBase,
-		token:   os.Getenv("GITLAB_TOKEN"),
+		token:   token,
 		client:  http.DefaultClient,
 		perPage: 100,
 	}

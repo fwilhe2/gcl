@@ -15,9 +15,13 @@ type gitHubForge struct {
 }
 
 func newGitHubForge(apiBase string) *gitHubForge {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		token = loadFileConfig().GitHubToken
+	}
 	return &gitHubForge{
 		apiBase: apiBase,
-		token:   os.Getenv("GITHUB_TOKEN"),
+		token:   token,
 		client:  http.DefaultClient,
 		perPage: 100,
 	}
