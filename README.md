@@ -108,11 +108,36 @@ gcl --all https://gitlab.com/my-group/my-subgroup
 ```
 
 Supported forges are `github.com` and `gitlab.com`. For self-hosted GitLab
-instances, list their hostnames in `GCL_GITLAB_HOSTS`:
+instances, list their hostnames in `GCL_GITLAB_HOSTS` — the API is always at
+`/api/v4` on the same host, so no further configuration is needed:
 
 ```sh
 GCL_GITLAB_HOSTS=git.example.com,gitlab.internal gcl https://git.example.com/my-group
 ```
+
+Self-hosted GitHub (GitHub Enterprise Server) instances don't expose their API
+at a fixed path relative to the host, so list them in `GCL_GITHUB_HOSTS` as
+`host=apiBaseURL` pairs instead:
+
+```sh
+GCL_GITHUB_HOSTS=github.example.com=https://github.example.com/api/v3 gcl https://github.example.com/my-org
+```
+
+For hosts you use permanently, put them in a config file instead of an env
+var. `gcl` reads `$GCL_CONFIG`, or `<user config dir>/gcl/config.json` (e.g.
+`~/.config/gcl/config.json` on Linux) if unset:
+
+```json
+{
+  "gitlab_hosts": ["git.example.com", "gitlab.internal"],
+  "github_hosts": {
+    "github.example.com": "https://github.example.com/api/v3"
+  }
+}
+```
+
+Env vars and the config file are merged, so either can be used on their own
+or together.
 
 ### Authentication
 
@@ -132,6 +157,8 @@ repositories.
 | --- | --- | --- |
 | `GCL_BASE_DIR` | Base directory for clones (`~` is expanded) | `~/code` |
 | `GCL_GITLAB_HOSTS` | Comma-separated hostnames to treat as GitLab | — |
+| `GCL_GITHUB_HOSTS` | Comma-separated `host=apiBaseURL` pairs to treat as GitHub | — |
+| `GCL_CONFIG` | Path to the config file | `<user config dir>/gcl/config.json` |
 | `GITHUB_TOKEN` | Auth for the GitHub repository listing API | — |
 | `GITLAB_TOKEN` | Auth for the GitLab repository listing API | — |
 

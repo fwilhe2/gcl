@@ -130,3 +130,16 @@ func TestForgeForHostSelfHostedGitLab(t *testing.T) {
 		t.Fatal("forgeForHost(other.example.com) unexpectedly found")
 	}
 }
+
+func TestForgeForHostSelfHostedGitHub(t *testing.T) {
+	t.Setenv("GCL_GITHUB_HOSTS", "github.example.com=https://github.example.com/api/v3, git.internal = https://git.internal/api/v3 ")
+
+	for _, host := range []string{"github.example.com", "git.internal"} {
+		if _, ok := forgeForHost(host); !ok {
+			t.Fatalf("forgeForHost(%s) not found", host)
+		}
+	}
+	if _, ok := forgeForHost("other.example.com"); ok {
+		t.Fatal("forgeForHost(other.example.com) unexpectedly found")
+	}
+}
