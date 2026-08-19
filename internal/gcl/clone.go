@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/client"
 )
 
 var (
@@ -79,12 +80,16 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 		progress = os.Stderr
 	}
 
-	_, err = plainClone(clonePath, &git.CloneOptions{
+	cloneOptions := &git.CloneOptions{
 		URL:               gitUrl,
-		Auth:              credentialFromHelper(gitUrl),
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 		Progress:          progress,
-	})
+	}
+	if auth := credentialFromHelper(gitUrl); auth != nil {
+		cloneOptions.ClientOptions = append(cloneOptions.ClientOptions, client.WithHTTPAuth(auth))
+	}
+
+	_, err = plainClone(clonePath, cloneOptions)
 	if err != nil {
 		cleanupErr := os.RemoveAll(clonePath)
 		if cleanupErr != nil {
