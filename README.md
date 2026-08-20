@@ -25,7 +25,7 @@ sudo install gcl /usr/local/bin
 
 Archives are published for Linux, macOS, and Windows (x86_64, arm64, i386).
 
-Or build from source (Go 1.24+):
+Or build from source (Go 1.25+):
 
 ```sh
 go install github.com/fwilhe2/gcl@latest
