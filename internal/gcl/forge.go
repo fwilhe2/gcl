@@ -23,12 +23,12 @@ var forgeForHost = func(host string) (Forge, bool) {
 	host = strings.ToLower(host)
 	switch {
 	case host == "github.com":
-		return newGitHubForge("https://api.github.com"), true
+		return newGitHubForge("https://api.github.com", ""), true
 	case host == "gitlab.com" || isGitLabHost(host):
 		return newGitLabForge("https://" + host + "/api/v4"), true
 	default:
-		if apiBase, ok := gitHubHostAPIBase(host); ok {
-			return newGitHubForge(apiBase), true
+		if cfg, ok := gitHubHostConfigFor(host); ok {
+			return newGitHubForge(cfg.APIBase, cfg.Token), true
 		}
 		return nil, false
 	}
@@ -51,28 +51,29 @@ func isGitLabHost(host string) bool {
 	return false
 }
 
-// gitHubHostAPIBase looks up host as a self-hosted GitHub instance, either
+// gitHubHostConfigFor looks up host as a self-hosted GitHub instance, either
 // in GCL_GITHUB_HOSTS (comma-separated host=apiBaseURL pairs, e.g.
 // "github.example.com=https://github.example.com/api/v3") or in the
-// "github_hosts" object of the config file (see configPath). Unlike
-// GitLab, GitHub Enterprise deployments don't expose their API at a fixed
-// path relative to the host, so the API URL must be configured explicitly.
-func gitHubHostAPIBase(host string) (string, bool) {
+// "github_hosts" object of the config file (see configPath), which also
+// allows a per-instance token. Unlike GitLab, GitHub Enterprise deployments
+// don't expose their API at a fixed path relative to the host, so the API
+// URL must be configured explicitly.
+func gitHubHostConfigFor(host string) (gitHubHostConfig, bool) {
 	for entry := range strings.SplitSeq(os.Getenv("GCL_GITHUB_HOSTS"), ",") {
 		entryHost, apiBase, ok := strings.Cut(strings.TrimSpace(entry), "=")
 		if !ok {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(entryHost), host) {
-			return strings.TrimSpace(apiBase), true
+			return gitHubHostConfig{APIBase: strings.TrimSpace(apiBase)}, true
 		}
 	}
-	for entryHost, apiBase := range loadFileConfig().GitHubHosts {
+	for entryHost, cfg := range loadFileConfig().GitHubHosts {
 		if strings.EqualFold(entryHost, host) {
-			return apiBase, true
+			return cfg, true
 		}
 	}
-	return "", false
+	return gitHubHostConfig{}, false
 }
 
 func getJSONList[T any](client *http.Client, requestURL string, header http.Header) ([]T, error) {

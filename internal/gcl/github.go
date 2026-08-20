@@ -14,8 +14,13 @@ type gitHubForge struct {
 	perPage int
 }
 
-func newGitHubForge(apiBase string) *gitHubForge {
-	token := os.Getenv("GITHUB_TOKEN")
+// newGitHubForge builds a forge for apiBase. token, if set, is used as-is
+// (a per-host token from config); otherwise it falls back to GITHUB_TOKEN
+// and then the file config's global github_token.
+func newGitHubForge(apiBase, token string) *gitHubForge {
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
 	if token == "" {
 		token = loadFileConfig().GitHubToken
 	}

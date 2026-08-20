@@ -29,13 +29,26 @@ func TestForgeForHostSelfHostedGitLabFromConfigFile(t *testing.T) {
 }
 
 func TestForgeForHostSelfHostedGitHubFromConfigFile(t *testing.T) {
-	writeConfig(t, `{"github_hosts": {"github.example.com": "https://github.example.com/api/v3"}}`)
+	writeConfig(t, `{"github_hosts": {"github.example.com": {"api_base": "https://github.example.com/api/v3"}}}`)
 
 	if _, ok := forgeForHost("github.example.com"); !ok {
 		t.Fatal("forgeForHost(github.example.com) not found")
 	}
 	if _, ok := forgeForHost("other.example.com"); ok {
 		t.Fatal("forgeForHost(other.example.com) unexpectedly found")
+	}
+}
+
+func TestGitHubHostTokenFromConfigFile(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	writeConfig(t, `{"github_token": "global-tok", "github_hosts": {"github.example.com": {"api_base": "https://github.example.com/api/v3", "token": "host-tok"}}}`)
+
+	forge, ok := forgeForHost("github.example.com")
+	if !ok {
+		t.Fatal("forgeForHost(github.example.com) not found")
+	}
+	if got := forge.(*gitHubForge).token; got != "host-tok" {
+		t.Fatalf("token = %q, want %q", got, "host-tok")
 	}
 }
 
@@ -69,7 +82,7 @@ func TestGitHubTokenFromConfigFile(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	writeConfig(t, `{"github_token": "tok3n"}`)
 
-	forge := newGitHubForge("https://api.github.com")
+	forge := newGitHubForge("https://api.github.com", "")
 	if forge.token != "tok3n" {
 		t.Fatalf("token = %q, want %q", forge.token, "tok3n")
 	}
@@ -79,7 +92,7 @@ func TestGitHubTokenEnvWinsOverConfigFile(t *testing.T) {
 	writeConfig(t, `{"github_token": "from-config"}`)
 	t.Setenv("GITHUB_TOKEN", "from-env")
 
-	forge := newGitHubForge("https://api.github.com")
+	forge := newGitHubForge("https://api.github.com", "")
 	if forge.token != "from-env" {
 		t.Fatalf("token = %q, want %q", forge.token, "from-env")
 	}
