@@ -37,7 +37,7 @@ func TestGitHubForgeListsOrgReposAcrossPages(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	forge := newGitHubForge(server.URL)
+	forge := newGitHubForge(server.URL, "")
 	forge.perPage = 2
 
 	got, err := forge.ListCloneURLs("myorg")
@@ -74,7 +74,7 @@ func TestGitHubForgeFallsBackToUserRepos(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	forge := newGitHubForge(server.URL)
+	forge := newGitHubForge(server.URL, "")
 
 	got, err := forge.ListCloneURLs("someuser")
 	if err != nil {
@@ -92,7 +92,7 @@ func TestGitHubForgeReportsAPIErrors(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	forge := newGitHubForge(server.URL)
+	forge := newGitHubForge(server.URL, "")
 
 	_, err := forge.ListCloneURLs("myorg")
 	if err == nil {

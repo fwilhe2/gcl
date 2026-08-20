@@ -171,12 +171,15 @@ The file is entirely optional, and a missing file is not an error.
   "github_token": "ghp_ExampleGitHubToken1234567890",
   "gitlab_token": "glpat-ExampleGitLabToken1234567",
   "github_hosts": {
-    "github.example.com": "https://github.example.com/api/v3",
-    "ghe.corp.internal": "https://ghe.corp.internal/api/v3"
+    "github.example.com": { "api_base": "https://github.example.com/api/v3" },
+    "ghe.corp.internal": { "api_base": "https://ghe.corp.internal/api/v3", "token": "ghp_ExampleEnterpriseToken1234567890" }
   },
   "gitlab_hosts": ["git.example.com", "gitlab.internal"]
 }
 ```
+
+Each entry in `github_hosts` may set its own `token`, used instead of
+`github_token`/`GITHUB_TOKEN` for that instance.
 
 ## Development
 
