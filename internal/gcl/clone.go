@@ -11,12 +11,15 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/client"
 )
 
 var (
 	scpLikeURLPattern = regexp.MustCompile(`^(?:[^@]+@)?([^:]+):/?(.+)$`)
 	plainClone        = git.PlainClone
+	plainOpen         = git.PlainOpen
 )
 
 type CloneOptions struct {
@@ -26,6 +29,10 @@ type CloneOptions struct {
 	// and clones all of its repositories, even if the URL has more
 	// than one path segment (e.g. a GitLab subgroup).
 	All bool
+	// Backup creates a bare mirror clone (all branches, tags and other
+	// refs) in <repo>.git instead of a working copy. Running it again on
+	// an existing mirror updates it instead of skipping it.
+	Backup bool
 }
 
 func dirExists(path string) (bool, error) {
@@ -57,12 +64,18 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 	if err != nil {
 		return err
 	}
+	if opts.Backup {
+		clonePath += ".git"
+	}
 
 	exists, err := dirExists(clonePath)
 	if err != nil {
 		return err
 	}
 	if exists {
+		if opts.Backup {
+			return updateMirror(gitUrl, clonePath, opts)
+		}
 		fmt.Fprintf(os.Stderr, "Directory already exists: %s\n", clonePath)
 		fmt.Println(clonePath)
 		return nil
@@ -85,6 +98,11 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 		Progress:          progress,
 	}
+	if opts.Backup {
+		cloneOptions.Mirror = true
+		cloneOptions.Tags = plumbing.AllTags
+		cloneOptions.RecurseSubmodules = git.NoRecurseSubmodules
+	}
 	if auth := credentialFromHelper(gitUrl); auth != nil {
 		cloneOptions.ClientOptions = append(cloneOptions.ClientOptions, client.WithHTTPAuth(auth))
 	}
@@ -95,6 +113,42 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 		if cleanupErr != nil {
 			return errors.Join(err, cleanupErr)
 		}
+		return err
+	}
+
+	fmt.Println(clonePath)
+	return nil
+}
+
+// updateMirror refreshes an existing backup mirror: it fetches every ref
+// from the remote, overwriting and pruning local ones so the mirror stays
+// an exact copy.
+func updateMirror(gitUrl, clonePath string, opts CloneOptions) error {
+	fmt.Fprintf(os.Stderr, "Updating mirror %s\n", clonePath)
+
+	repo, err := plainOpen(clonePath)
+	if err != nil {
+		return err
+	}
+
+	progress := opts.Progress
+	if progress == nil {
+		progress = os.Stderr
+	}
+
+	fetchOptions := &git.FetchOptions{
+		RefSpecs: []config.RefSpec{"+refs/*:refs/*"},
+		Tags:     plumbing.AllTags,
+		Force:    true,
+		Prune:    true,
+		Progress: progress,
+	}
+	if auth := credentialFromHelper(gitUrl); auth != nil {
+		fetchOptions.ClientOptions = append(fetchOptions.ClientOptions, client.WithHTTPAuth(auth))
+	}
+
+	err = repo.Fetch(fetchOptions)
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
 
