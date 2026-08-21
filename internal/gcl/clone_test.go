@@ -302,3 +302,70 @@ func TestCloneRemovesTargetDirectoryAfterFailedClone(t *testing.T) {
 		t.Fatalf("clone path still exists after failure: %v", err)
 	}
 }
+
+func TestCloneBackupMirrorsIntoGitSuffixedDir(t *testing.T) {
+	baseDir := t.TempDir()
+	previousPlainClone := plainClone
+	t.Cleanup(func() {
+		plainClone = previousPlainClone
+	})
+
+	var gotPath string
+	var gotMirror bool
+	plainClone = func(path string, opts *git.CloneOptions) (*git.Repository, error) {
+		gotPath = path
+		gotMirror = opts.Mirror
+		if err := os.MkdirAll(path, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		return nil, nil
+	}
+
+	err := CloneWithOptions("https://github.com/fwilhe2/gcl", CloneOptions{
+		BaseDir:  baseDir,
+		Backup:   true,
+		Progress: io.Discard,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl.git")
+	if gotPath != want {
+		t.Fatalf("clone path = %q, want %q", gotPath, want)
+	}
+	if !gotMirror {
+		t.Fatal("clone was not a mirror")
+	}
+}
+
+func TestCloneBackupUpdatesExistingMirror(t *testing.T) {
+	baseDir := t.TempDir()
+	mirrorPath := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl.git")
+	if err := os.MkdirAll(mirrorPath, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	openErr := errors.New("open failed")
+	previousPlainOpen := plainOpen
+	t.Cleanup(func() {
+		plainOpen = previousPlainOpen
+	})
+	var gotPath string
+	plainOpen = func(path string) (*git.Repository, error) {
+		gotPath = path
+		return nil, openErr
+	}
+
+	err := CloneWithOptions("https://github.com/fwilhe2/gcl", CloneOptions{
+		BaseDir:  baseDir,
+		Backup:   true,
+		Progress: io.Discard,
+	})
+	if !errors.Is(err, openErr) {
+		t.Fatalf("CloneWithOptions() error = %v, want %v", err, openErr)
+	}
+	if gotPath != mirrorPath {
+		t.Fatalf("opened %q, want %q", gotPath, mirrorPath)
+	}
+}

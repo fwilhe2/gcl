@@ -39,6 +39,9 @@ gcl <repository-url|owner-url> [flags]
 Flags:
       --all               clone all repositories of the given owner, even for URLs
                           with multiple path segments (e.g. GitLab subgroups)
+      --backup            back up repositories as bare mirrors in <repo>.git (all
+                          branches, tags and other refs); re-running updates
+                          existing mirrors
       --base-dir string   base directory for cloned repositories
   -v, --version           version for gcl
 ```
@@ -122,6 +125,20 @@ at a fixed path relative to the host, so list them in `GCL_GITHUB_HOSTS` as
 ```sh
 GCL_GITHUB_HOSTS=github.example.com=https://github.example.com/api/v3 gcl https://github.example.com/my-org
 ```
+
+### Backing up repositories
+
+`--backup` clones bare mirrors instead of working copies: every branch, tag,
+and other ref (on GitHub also `refs/pull/*`) ends up in `<repo>.git`.
+
+```sh
+gcl --backup https://github.com/my-org
+# → ~/code/github.com/my-org/*.git
+```
+
+Re-running the same command updates the existing mirrors instead of skipping
+them, with deleted remote refs pruned locally, so it can be put on a timer.
+Restore from a mirror with a plain `git clone ~/code/github.com/my-org/repo.git`.
 
 ### Authentication
 

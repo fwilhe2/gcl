@@ -9,6 +9,7 @@ import (
 var (
 	baseDir string
 	all     bool
+	backup  bool
 )
 
 var rootCmd = &cobra.Command{
@@ -24,6 +25,7 @@ all of its repositories.`,
 		return gcl.CloneWithOptions(args[0], gcl.CloneOptions{
 			BaseDir: baseDir,
 			All:     all,
+			Backup:  backup,
 		})
 	},
 }
@@ -39,4 +41,5 @@ func init() {
 
 	rootCmd.Flags().StringVar(&baseDir, "base-dir", "", "base directory for cloned repositories")
 	rootCmd.Flags().BoolVar(&all, "all", false, "clone all repositories of the given owner, even for URLs with multiple path segments (e.g. GitLab subgroups)")
+	rootCmd.Flags().BoolVar(&backup, "backup", false, "back up repositories as bare mirrors in <repo>.git (all branches, tags and other refs); re-running updates existing mirrors")
 }
