@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+)
+
+var (
+	cfgOnce   sync.Once
+	cachedCfg fileConfig
 )
 
 // fileConfig is the shape of the optional JSON config file (see
@@ -42,20 +48,26 @@ func configPath() string {
 // loadFileConfig reads and parses the config file. A missing file is not
 // an error; an unparsable one is reported on stderr and otherwise ignored.
 func loadFileConfig() fileConfig {
-	path := configPath()
-	if path == "" {
-		return fileConfig{}
-	}
+	cfgOnce.Do(func() {
+		path := configPath()
+		if path == "" {
+			cachedCfg = fileConfig{}
+			return
+		}
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fileConfig{}
-	}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			cachedCfg = fileConfig{}
+			return
+		}
 
-	var cfg fileConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "gcl: ignoring invalid config file %s: %v\n", path, err)
-		return fileConfig{}
-	}
-	return cfg
+		var cfg fileConfig
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "gcl: ignoring invalid config file %s: %v\n", path, err)
+			cachedCfg = fileConfig{}
+			return
+		}
+		cachedCfg = cfg
+	})
+	return cachedCfg
 }
