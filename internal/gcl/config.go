@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+)
+
+var (
+	cfgMu    sync.RWMutex
+	cfgCache = map[string]fileConfig{}
 )
 
 // fileConfig is the shape of the optional JSON config file (see
@@ -47,6 +53,13 @@ func loadFileConfig() fileConfig {
 		return fileConfig{}
 	}
 
+	cfgMu.RLock()
+	if cfg, ok := cfgCache[path]; ok {
+		cfgMu.RUnlock()
+		return cfg
+	}
+	cfgMu.RUnlock()
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fileConfig{}
@@ -57,5 +70,9 @@ func loadFileConfig() fileConfig {
 		fmt.Fprintf(os.Stderr, "gcl: ignoring invalid config file %s: %v\n", path, err)
 		return fileConfig{}
 	}
+
+	cfgMu.Lock()
+	cfgCache[path] = cfg
+	cfgMu.Unlock()
 	return cfg
 }

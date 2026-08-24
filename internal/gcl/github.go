@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 )
 
 type gitHubForge struct {
@@ -27,7 +28,7 @@ func newGitHubForge(apiBase, token string) *gitHubForge {
 	return &gitHubForge{
 		apiBase: apiBase,
 		token:   token,
-		client:  http.DefaultClient,
+		client:  &http.Client{Timeout: 30 * time.Second},
 		perPage: 100,
 	}
 }

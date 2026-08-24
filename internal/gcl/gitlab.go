@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"time"
 )
 
 type gitLabForge struct {
@@ -24,7 +25,7 @@ func newGitLabForge(apiBase string) *gitLabForge {
 	return &gitLabForge{
 		apiBase: apiBase,
 		token:   token,
-		client:  http.DefaultClient,
+		client:  &http.Client{Timeout: 30 * time.Second},
 		perPage: 100,
 	}
 }
