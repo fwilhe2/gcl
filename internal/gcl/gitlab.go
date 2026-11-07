@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"time"
 )
@@ -18,13 +17,9 @@ type gitLabForge struct {
 }
 
 func newGitLabForge(apiBase string) *gitLabForge {
-	token := os.Getenv("GITLAB_TOKEN")
-	if token == "" {
-		token = loadFileConfig().GitLabToken
-	}
 	return &gitLabForge{
 		apiBase: apiBase,
-		token:   token,
+		token:   gitLabToken(),
 		client:  &http.Client{Timeout: 30 * time.Second},
 		perPage: 100,
 	}

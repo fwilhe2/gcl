@@ -64,6 +64,17 @@ gcl git@github.com:fwilhe2/gcl.git
 Submodules are cloned recursively. If the target directory already exists,
 `gcl` leaves it alone and just prints its path — so re-running is safe.
 
+### Large repositories and memory
+
+`gcl` clones with the `git` binary when it is installed, limiting git's memory
+use (threads and caches) to half of the memory available, cgroup limits
+included. Progress is shown while objects are received and deltas resolved.
+
+Without `git`, `gcl` falls back to a built-in implementation whose memory use
+grows with the repository size. It also stays within half of the available
+memory: if a clone would exceed that, `gcl` stops, removes the partial clone and
+asks you to install git.
+
 ### Jumping into the clone
 
 Progress and status messages go to stderr, the clone path goes to stdout:
@@ -142,15 +153,15 @@ Restore from a mirror with a plain `git clone ~/code/github.com/my-org/repo.git`
 
 ### Authentication
 
-For cloning over HTTP(S), `gcl` asks your configured git credential helper
-(`git credential fill`) for credentials — whatever already works for
-`git clone` works here. It never prompts interactively: if no helper has a
-matching credential, the clone proceeds unauthenticated. SSH URLs use your
-normal SSH setup.
+For cloning over HTTP(S), `gcl` uses your configured git credential helper —
+whatever already works for `git clone` works here. If no helper has a matching
+credential, the forge token for that host is used (`GITHUB_TOKEN`,
+`GITLAB_TOKEN`, or a per-host `token` from the config file); without either, the
+clone proceeds unauthenticated. It never prompts for a password. SSH URLs use
+your normal SSH setup.
 
-Listing an owner's repositories goes through the forge API instead. Set
-`GITHUB_TOKEN` or `GITLAB_TOKEN` for higher rate limits and access to private
-repositories.
+Listing an owner's repositories goes through the forge API with the same
+tokens, for higher rate limits and access to private repositories.
 
 ### Configuration reference
 
@@ -163,8 +174,8 @@ be used together — the env var wins if a setting is present in both.
 | `GCL_BASE_DIR` | `base_dir` | Base directory for clones (`~` is expanded) | `~/code` |
 | `GCL_GITLAB_HOSTS` | `gitlab_hosts` | Hostnames to treat as GitLab | — |
 | `GCL_GITHUB_HOSTS` | `github_hosts` | Hosts to treat as GitHub, with their API base URL | — |
-| `GITHUB_TOKEN` | `github_token` | Auth for the GitHub repository listing API | — |
-| `GITLAB_TOKEN` | `gitlab_token` | Auth for the GitLab repository listing API | — |
+| `GITHUB_TOKEN` | `github_token` | Auth for the GitHub API and HTTPS clones | — |
+| `GITLAB_TOKEN` | `gitlab_token` | Auth for the GitLab API and HTTPS clones | — |
 | `GCL_CONFIG` | — | Path to the config file itself | see below |
 
 #### Config file location

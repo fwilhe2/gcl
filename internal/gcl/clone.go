@@ -93,21 +93,11 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 		progress = os.Stderr
 	}
 
-	cloneOptions := &git.CloneOptions{
-		URL:               gitUrl,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		Progress:          progress,
+	if gitAvailable() {
+		err = gitCloneCLI(gitUrl, clonePath, opts.Backup, progress)
+	} else {
+		err = goGitClone(gitUrl, clonePath, opts.Backup, progress)
 	}
-	if opts.Backup {
-		cloneOptions.Mirror = true
-		cloneOptions.Tags = plumbing.AllTags
-		cloneOptions.RecurseSubmodules = git.NoRecurseSubmodules
-	}
-	if auth := credentialFromHelper(gitUrl); auth != nil {
-		cloneOptions.ClientOptions = append(cloneOptions.ClientOptions, client.WithHTTPAuth(auth))
-	}
-
-	_, err = plainClone(clonePath, cloneOptions)
 	if err != nil {
 		cleanupErr := os.RemoveAll(clonePath)
 		if cleanupErr != nil {
@@ -120,20 +110,68 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 	return nil
 }
 
+// goGitClone clones in-process with go-git, the fallback when git is not
+// installed. go-git's memory use grows with the size of the repository,
+// so it runs under a memory guard that stops gcl, rather than letting the
+// system run out of memory, once the budget is exhausted.
+func goGitClone(gitUrl, clonePath string, mirror bool, progress io.Writer) error {
+	cloneOptions := &git.CloneOptions{
+		URL:               gitUrl,
+		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+		Progress:          progress,
+	}
+	objectsDir := filepath.Join(clonePath, git.GitDirName, "objects")
+	if mirror {
+		cloneOptions.Mirror = true
+		cloneOptions.Tags = plumbing.AllTags
+		cloneOptions.RecurseSubmodules = git.NoRecurseSubmodules
+		objectsDir = filepath.Join(clonePath, "objects")
+	}
+	if auth := httpAuthFor(gitUrl); auth != nil {
+		cloneOptions.ClientOptions = append(cloneOptions.ClientOptions, client.WithHTTPAuth(auth))
+	}
+
+	budget := memoryBudget()
+	stopGuard := guardMemory(budget, abortOnMemoryLimit("clone of "+gitUrl, budget, func() {
+		_ = os.RemoveAll(clonePath)
+	}))
+	defer stopGuard()
+	stopProgress := reportProgress(objectsDir, progress)
+	defer stopProgress()
+
+	_, err := plainClone(clonePath, cloneOptions)
+	return err
+}
+
 // updateMirror refreshes an existing backup mirror: it fetches every ref
 // from the remote, overwriting and pruning local ones so the mirror stays
 // an exact copy.
 func updateMirror(gitUrl, clonePath string, opts CloneOptions) error {
 	fmt.Fprintf(os.Stderr, "Updating mirror %s\n", clonePath)
 
-	repo, err := plainOpen(clonePath)
+	progress := opts.Progress
+	if progress == nil {
+		progress = os.Stderr
+	}
+
+	var err error
+	if gitAvailable() {
+		err = gitUpdateMirrorCLI(gitUrl, clonePath, progress)
+	} else {
+		err = goGitUpdateMirror(gitUrl, clonePath, progress)
+	}
 	if err != nil {
 		return err
 	}
 
-	progress := opts.Progress
-	if progress == nil {
-		progress = os.Stderr
+	fmt.Println(clonePath)
+	return nil
+}
+
+func goGitUpdateMirror(gitUrl, clonePath string, progress io.Writer) error {
+	repo, err := plainOpen(clonePath)
+	if err != nil {
+		return err
 	}
 
 	fetchOptions := &git.FetchOptions{
@@ -143,16 +181,22 @@ func updateMirror(gitUrl, clonePath string, opts CloneOptions) error {
 		Prune:    true,
 		Progress: progress,
 	}
-	if auth := credentialFromHelper(gitUrl); auth != nil {
+	if auth := httpAuthFor(gitUrl); auth != nil {
 		fetchOptions.ClientOptions = append(fetchOptions.ClientOptions, client.WithHTTPAuth(auth))
 	}
+
+	budget := memoryBudget()
+	// The existing mirror stays; a partial fetch leaves at most a
+	// temporary pack behind.
+	stopGuard := guardMemory(budget, abortOnMemoryLimit("update of "+clonePath, budget, nil))
+	defer stopGuard()
+	stopProgress := reportProgress(filepath.Join(clonePath, "objects"), progress)
+	defer stopProgress()
 
 	err = repo.Fetch(fetchOptions)
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
-
-	fmt.Println(clonePath)
 	return nil
 }
 

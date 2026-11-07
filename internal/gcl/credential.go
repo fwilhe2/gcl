@@ -60,3 +60,16 @@ func credentialFromHelper(gitUrl string) *http.BasicAuth {
 		Password: password,
 	}
 }
+
+// httpAuthFor returns the credentials go-git uses for an HTTP(S) clone
+// URL: what the git credential helper has, otherwise the forge token
+// configured for the URL's host, otherwise nil.
+func httpAuthFor(gitUrl string) *http.BasicAuth {
+	if auth := credentialFromHelper(gitUrl); auth != nil {
+		return auth
+	}
+	if username, token := tokenForURL(gitUrl); token != "" {
+		return &http.BasicAuth{Username: username, Password: token}
+	}
+	return nil
+}
