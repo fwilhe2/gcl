@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -19,12 +18,7 @@ type gitHubForge struct {
 // (a per-host token from config); otherwise it falls back to GITHUB_TOKEN
 // and then the file config's global github_token.
 func newGitHubForge(apiBase, token string) *gitHubForge {
-	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
-	}
-	if token == "" {
-		token = loadFileConfig().GitHubToken
-	}
+	token = gitHubToken(token)
 	return &gitHubForge{
 		apiBase: apiBase,
 		token:   token,

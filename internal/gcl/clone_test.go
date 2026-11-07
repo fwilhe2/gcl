@@ -168,6 +168,7 @@ func (s *stubForge) ListCloneURLs(owner string) ([]string, error) {
 }
 
 func TestCloneOwnerClonesAllRepositories(t *testing.T) {
+	useGoGit(t)
 	baseDir := t.TempDir()
 
 	previousForgeForHost := forgeForHost
@@ -219,6 +220,7 @@ func TestCloneOwnerClonesAllRepositories(t *testing.T) {
 }
 
 func TestCloneAllTreatsMultiSegmentPathAsOwner(t *testing.T) {
+	useGoGit(t)
 	baseDir := t.TempDir()
 
 	previousForgeForHost := forgeForHost
@@ -273,6 +275,7 @@ func TestCloneOwnerUnsupportedHost(t *testing.T) {
 }
 
 func TestCloneRemovesTargetDirectoryAfterFailedClone(t *testing.T) {
+	useGoGit(t)
 	baseDir := t.TempDir()
 	cloneErr := errors.New("clone failed")
 	previousPlainClone := plainClone
@@ -304,6 +307,7 @@ func TestCloneRemovesTargetDirectoryAfterFailedClone(t *testing.T) {
 }
 
 func TestCloneBackupMirrorsIntoGitSuffixedDir(t *testing.T) {
+	useGoGit(t)
 	baseDir := t.TempDir()
 	previousPlainClone := plainClone
 	t.Cleanup(func() {
@@ -340,6 +344,7 @@ func TestCloneBackupMirrorsIntoGitSuffixedDir(t *testing.T) {
 }
 
 func TestCloneBackupUpdatesExistingMirror(t *testing.T) {
+	useGoGit(t)
 	baseDir := t.TempDir()
 	mirrorPath := filepath.Join(baseDir, "github.com", "fwilhe2", "gcl.git")
 	if err := os.MkdirAll(mirrorPath, 0o750); err != nil {
@@ -368,4 +373,18 @@ func TestCloneBackupUpdatesExistingMirror(t *testing.T) {
 	if gotPath != mirrorPath {
 		t.Fatalf("opened %q, want %q", gotPath, mirrorPath)
 	}
+}
+
+// useGoGit makes the clone functions take the go-git fallback, as if git
+// were not installed.
+func useGoGit(t *testing.T) {
+	t.Helper()
+	setGitAvailable(t, false)
+}
+
+func setGitAvailable(t *testing.T, available bool) {
+	t.Helper()
+	previous := gitAvailable
+	t.Cleanup(func() { gitAvailable = previous })
+	gitAvailable = func() bool { return available }
 }
