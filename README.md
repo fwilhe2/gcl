@@ -43,6 +43,8 @@ Flags:
                           branches, tags and other refs); re-running updates
                           existing mirrors
       --base-dir string   base directory for cloned repositories
+      --update            fast-forward existing repositories that are clean and on
+                          their default branch; others are left untouched
   -v, --version           version for gcl
 ```
 
@@ -150,6 +152,17 @@ gcl --backup https://github.com/my-org
 Re-running the same command updates the existing mirrors instead of skipping
 them, with deleted remote refs pruned locally, so it can be put on a timer.
 Restore from a mirror with a plain `git clone ~/code/github.com/my-org/repo.git`.
+
+### Updating existing repositories
+
+By default, repositories that already exist locally are skipped. With
+`--update`, they are fast-forwarded (`git pull --ff-only`) instead — but only if
+the working tree is clean and the default branch (`origin/HEAD`, else `main` or
+`master`) is checked out. Anything else is reported and left untouched.
+
+```sh
+gcl --all --update https://github.com/my-org
+```
 
 ### Authentication
 
