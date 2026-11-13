@@ -33,6 +33,9 @@ type CloneOptions struct {
 	// refs) in <repo>.git instead of a working copy. Running it again on
 	// an existing mirror updates it instead of skipping it.
 	Backup bool
+	// Update fast-forwards existing working copies that are clean and
+	// have their default branch checked out.
+	Update bool
 }
 
 func dirExists(path string) (bool, error) {
@@ -75,6 +78,9 @@ func CloneWithOptions(gitUrl string, opts CloneOptions) error {
 	if exists {
 		if opts.Backup {
 			return updateMirror(gitUrl, clonePath, opts)
+		}
+		if opts.Update {
+			return updateWorkingCopy(gitUrl, clonePath, opts)
 		}
 		fmt.Fprintf(os.Stderr, "Directory already exists: %s\n", clonePath)
 		fmt.Println(clonePath)

@@ -10,6 +10,7 @@ var (
 	baseDir string
 	all     bool
 	backup  bool
+	update  bool
 )
 
 var rootCmd = &cobra.Command{
@@ -26,6 +27,7 @@ all of its repositories.`,
 			BaseDir: baseDir,
 			All:     all,
 			Backup:  backup,
+			Update:  update,
 		})
 	},
 }
@@ -42,4 +44,5 @@ func init() {
 	rootCmd.Flags().StringVar(&baseDir, "base-dir", "", "base directory for cloned repositories")
 	rootCmd.Flags().BoolVar(&all, "all", false, "clone all repositories of the given owner, even for URLs with multiple path segments (e.g. GitLab subgroups)")
 	rootCmd.Flags().BoolVar(&backup, "backup", false, "back up repositories as bare mirrors in <repo>.git (all branches, tags and other refs); re-running updates existing mirrors")
+	rootCmd.Flags().BoolVar(&update, "update", false, "fast-forward existing repositories that are clean and on their default branch; others are left untouched")
 }
